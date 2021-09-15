@@ -8,7 +8,7 @@
               padding: 0;
               margin: 0;
             }
-            
+
             html {
               font-family: 'Roboto', sans-serif;
               font-weight: normal;
@@ -16,16 +16,16 @@
               -webkit-font-smoothing: antialiased;
               -moz-osx-font-smoothing: grayscale;
             }
-            
+
             body {
               background: #f1f2f5;
             }
-            
+
             #app {
                 padding-top: 100px;
                 text-align: center;
             }
-            
+
             #input {
                 margin: 20px auto;
                 border-radius: 4px;
@@ -35,12 +35,12 @@
                 border: 1px solid black;
                 font-size: 24px;
             }
-            
+
             #response-container,
             #cancel-prev-request-container {
                 margin: 10px;
                 font-size: 16px;
-            
+
             }
             #button {
                 position: relative;
@@ -57,12 +57,12 @@
                 overflow: hidden;
                 cursor: pointer;
             }
-            
+
             #button:hover,
             #button:after {
                 background-color: #167e19;
             }
-            
+
             #button:after {
                 content: "";
                 background: #f1f1f1;
@@ -75,7 +75,7 @@
                 opacity: 0;
                 transition: all 0.8s
             }
-            
+
             #button:active:after {
                 padding: 0;
                 margin: 0;
@@ -89,9 +89,55 @@
             <input id="input">
             <div id="response-container"></div>
             <div id="cancel-prev-request-container"></div>
-            <button type="button" id="button">Очистить</button>
+            <button type="button" id="button">Clear</button>
         </div>
         <script>
+            'use strict';
+
+            const { fromEvent } = rxjs;
+            const { map, distinctUntilChanged, switchMap, mergeMap } = rxjs.operators;
+
+            const button = document.getElementById('button');
+            const input = document.getElementById('input');
+            const response = document.getElementById('response-container');
+            const cancel = document.getElementById('cancel-prev-request-container');
+
+            // Task 1 - clear input & both containers on button click
+            fromEvent(button, 'click').subscribe(() => {
+                input.value = '';
+                response.innerHTML = '';
+                cancel.innerHTML = '';
+            });
+
+            // Task 2 - create stream of input value changes & emulate API call on each
+            const inputStream$ = fromEvent(input, 'input');
+
+            const resolveCancelRequest = () => {
+                const req = inputStream$.pipe(
+                  map(e => e.target.value),
+                  switchMap(val => getApiResponse(val))
+                );
+
+                req.subscribe((res) => {
+                    cancel.innerHTML = res;
+                });
+            }
+            resolveCancelRequest();
+
+            // Task 3 - resolve api requests with race condition
+            const resolveRaceCondition = () => {
+                const req = inputStream$.pipe(
+                    map(e => e.target.value),
+                    mergeMap(val => getApiResponse(val)),
+                    distinctUntilChanged((prev, curr) => prev && curr.length <= prev.length)
+                );
+
+                req.subscribe((res) => {
+                        response.innerHTML += `<br>${res}`;
+                    });
+            }
+            resolveRaceCondition();
+
             const getRandomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
             const getApiResponse = (searchString) => new Promise(resolve =>
